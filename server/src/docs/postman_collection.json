@@ -1,0 +1,632 @@
+{
+  "info": {
+    "name": "HomeFood API",
+    "description": "Hyper-local homemade food delivery marketplace — complete API collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    { "key": "base_url",      "value": "http://localhost:5000/api/v1" },
+    { "key": "access_token",  "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "order_id",      "value": "" },
+    { "key": "cook_id",       "value": "" },
+    { "key": "menu_id",       "value": "" },
+    { "key": "review_id",     "value": "" },
+    { "key": "payment_id",    "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 200 || pm.response.code === 201) {",
+          "  const json = pm.response.json();",
+          "  if (json.data && json.data.accessToken) {",
+          "    pm.collectionVariables.set('access_token', json.data.accessToken);",
+          "    pm.collectionVariables.set('refresh_token', json.data.refreshToken);",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ravi Kumar\",\n  \"email\": \"ravi@example.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"Password@123\",\n  \"role\": \"customer\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register (Cook)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sunita Devi\",\n  \"email\": \"sunita@example.com\",\n  \"phone\": \"9123456780\",\n  \"password\": \"Password@123\",\n  \"role\": \"cook\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data) {",
+                  "  pm.collectionVariables.set('access_token', json.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', json.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ravi@example.com\",\n  \"password\": \"Password@123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/logout",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/refresh-token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ravi@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/reset-password/RESET_TOKEN_HERE",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"NewPassword@123\",\n  \"confirmPassword\": \"NewPassword@123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password@123\",\n  \"newPassword\": \"NewPassword@456\",\n  \"confirmPassword\": \"NewPassword@456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": { "method": "GET", "url": "{{base_url}}/users/profile" }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/users/profile",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ravi Kumar Updated\",\n  \"phone\": \"9876543211\"\n}" }
+          }
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/users/avatar",
+            "body": { "mode": "formdata", "formdata": [{ "key": "avatar", "type": "file" }] }
+          }
+        },
+        {
+          "name": "Get Addresses",
+          "request": { "method": "GET", "url": "{{base_url}}/users/addresses" }
+        },
+        {
+          "name": "Add Address",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/users/addresses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"home\",\n  \"line1\": \"12 MG Road\",\n  \"city\": \"Lucknow\",\n  \"state\": \"Uttar Pradesh\",\n  \"pincode\": \"226001\",\n  \"latitude\": 26.8467,\n  \"longitude\": 80.9462,\n  \"isDefault\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/users/addresses/ADDRESS_ID",
+            "body": { "mode": "raw", "raw": "{\n  \"line1\": \"15 MG Road\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": { "method": "DELETE", "url": "{{base_url}}/users/addresses/ADDRESS_ID" }
+        },
+        {
+          "name": "Delete Account",
+          "request": { "method": "DELETE", "url": "{{base_url}}/users/account" }
+        }
+      ]
+    },
+    {
+      "name": "🍳 Cook",
+      "item": [
+        {
+          "name": "Create Cook Profile",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/cooks/profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kitchenName\": \"Sunita's Kitchen\",\n  \"description\": \"Authentic UP home food\",\n  \"specialties\": [\"Dal Baati\", \"Kachori\", \"Biryani\"],\n  \"address\": {\n    \"line1\": \"45 Hazratganj\",\n    \"city\": \"Lucknow\",\n    \"state\": \"Uttar Pradesh\",\n    \"pincode\": \"226001\"\n  },\n  \"coordinates\": {\n    \"latitude\": 26.8467,\n    \"longitude\": 80.9462\n  },\n  \"maxDailyOrders\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Cook Profile",
+          "request": { "method": "GET", "url": "{{base_url}}/cooks/profile/me" }
+        },
+        {
+          "name": "Update Cook Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/cooks/profile",
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Best home-cooked meals in Lucknow!\",\n  \"maxDailyOrders\": 40\n}" }
+          }
+        },
+        {
+          "name": "Toggle Availability",
+          "request": { "method": "PATCH", "url": "{{base_url}}/cooks/availability" }
+        },
+        {
+          "name": "Upload Kitchen Images",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/cooks/images",
+            "body": { "mode": "formdata", "formdata": [{ "key": "images", "type": "file" }] }
+          }
+        },
+        {
+          "name": "Delete Kitchen Image",
+          "request": { "method": "DELETE", "url": "{{base_url}}/cooks/images/IMAGE_ID" }
+        },
+        {
+          "name": "Upload Verification Doc",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/cooks/verification-docs",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "document", "type": "file" },
+                { "key": "docType", "value": "aadhaar", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Nearby Kitchens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/cooks/nearby?latitude=26.8467&longitude=80.9462&radius=5&page=1&limit=10",
+              "query": [
+                { "key": "latitude", "value": "26.8467" },
+                { "key": "longitude", "value": "80.9462" },
+                { "key": "radius", "value": "5" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Cook By ID",
+          "request": { "method": "GET", "url": "{{base_url}}/cooks/{{cook_id}}" }
+        }
+      ]
+    },
+    {
+      "name": "🍱 Menu",
+      "item": [
+        {
+          "name": "Create Menu Item",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/menu",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Aloo Paratha", "type": "text" },
+                { "key": "description", "value": "Crispy stuffed flatbread with butter", "type": "text" },
+                { "key": "category", "value": "breakfast", "type": "text" },
+                { "key": "foodType", "value": "veg", "type": "text" },
+                { "key": "price", "value": "80", "type": "text" },
+                { "key": "quantity", "value": "50", "type": "text" },
+                { "key": "preparationTimeMinutes", "value": "20", "type": "text" },
+                { "key": "image", "type": "file" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Menu",
+          "request": { "method": "GET", "url": "{{base_url}}/menu/my" }
+        },
+        {
+          "name": "Get Cook's Menu (Public)",
+          "request": { "method": "GET", "url": "{{base_url}}/menu/cook/{{cook_id}}" }
+        },
+        {
+          "name": "Get Menu Item By ID",
+          "request": { "method": "GET", "url": "{{base_url}}/menu/{{menu_id}}" }
+        },
+        {
+          "name": "Update Menu Item",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/menu/{{menu_id}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "price", "value": "90", "type": "text" },
+                { "key": "quantity", "value": "45", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle Item Availability",
+          "request": { "method": "PATCH", "url": "{{base_url}}/menu/{{menu_id}}/toggle" }
+        },
+        {
+          "name": "Delete Menu Item",
+          "request": { "method": "DELETE", "url": "{{base_url}}/menu/{{menu_id}}" }
+        },
+        {
+          "name": "Search Menu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/menu/search?q=paratha&category=breakfast&foodType=veg&maxPrice=150",
+              "query": [
+                { "key": "q", "value": "paratha" },
+                { "key": "category", "value": "breakfast" },
+                { "key": "foodType", "value": "veg" },
+                { "key": "maxPrice", "value": "150" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Orders",
+      "item": [
+        {
+          "name": "Place Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) pm.collectionVariables.set('order_id', json.data._id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cookId\": \"{{cook_id}}\",\n  \"items\": [\n    { \"menuItemId\": \"{{menu_id}}\", \"quantity\": 2 }\n  ],\n  \"deliveryAddressId\": \"ADDRESS_ID\",\n  \"cookInstructions\": \"Less spicy please\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/orders?page=1&limit=10", "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+          }
+        },
+        {
+          "name": "Get Order By ID",
+          "request": { "method": "GET", "url": "{{base_url}}/orders/{{order_id}}" }
+        },
+        {
+          "name": "Update Order Status (Cook)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/orders/{{order_id}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"accepted\",\n  \"note\": \"Order confirmed!\"\n}" }
+          }
+        },
+        {
+          "name": "Cancel Order (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/orders/{{order_id}}/cancel",
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Changed my mind\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Payments",
+      "item": [
+        {
+          "name": "Create Razorpay Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data) pm.collectionVariables.set('payment_id', json.data.paymentId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/payments/create-order",
+            "body": { "mode": "raw", "raw": "{\n  \"orderId\": \"{{order_id}}\"\n}" }
+          }
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/payments/verify",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpayOrderId\": \"order_XXXXXXXXXXXXXX\",\n  \"razorpayPaymentId\": \"pay_XXXXXXXXXXXXXX\",\n  \"razorpaySignature\": \"SIGNATURE_FROM_RAZORPAY_SDK\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Payment History",
+          "request": { "method": "GET", "url": "{{base_url}}/payments/history" }
+        },
+        {
+          "name": "Get Payment By ID",
+          "request": { "method": "GET", "url": "{{base_url}}/payments/{{payment_id}}" }
+        }
+      ]
+    },
+    {
+      "name": "⭐ Reviews",
+      "item": [
+        {
+          "name": "Create Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) pm.collectionVariables.set('review_id', json.data._id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/reviews",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{order_id}}\",\n  \"rating\": 5,\n  \"foodRating\": 5,\n  \"packagingRating\": 4,\n  \"deliveryRating\": 5,\n  \"comment\": \"Absolutely delicious! Just like home.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Cook Reviews",
+          "request": { "method": "GET", "url": "{{base_url}}/reviews/cook/{{cook_id}}" }
+        },
+        {
+          "name": "Get My Reviews",
+          "request": { "method": "GET", "url": "{{base_url}}/reviews/my" }
+        },
+        {
+          "name": "Cook Reply to Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/reviews/{{review_id}}/reply",
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Thank you so much! We're glad you loved it. 🙏\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": { "method": "GET", "url": "{{base_url}}/notifications" }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/notifications/read",
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "Mark Specific as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/notifications/read",
+            "body": { "mode": "raw", "raw": "{\n  \"ids\": [\"NOTIFICATION_ID_1\", \"NOTIFICATION_ID_2\"]\n}" }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": { "method": "DELETE", "url": "{{base_url}}/notifications/NOTIFICATION_ID" }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Admin",
+      "item": [
+        {
+          "name": "Dashboard Stats",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/dashboard" }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/users?role=customer&page=1&limit=20", "query": [{ "key": "role", "value": "customer" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Toggle User Status",
+          "request": { "method": "PATCH", "url": "{{base_url}}/admin/users/USER_ID/toggle-status" }
+        },
+        {
+          "name": "Get All Cooks",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/cooks?status=pending", "query": [{ "key": "status", "value": "pending" }] }
+          }
+        },
+        {
+          "name": "Approve Cook",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/admin/cooks/{{cook_id}}/verify",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"approved\",\n  \"adminNote\": \"All documents verified. Welcome to HomeFood!\"\n}" }
+          }
+        },
+        {
+          "name": "Reject Cook",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/admin/cooks/{{cook_id}}/verify",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"rejected\",\n  \"adminNote\": \"FSSAI certificate missing. Please reapply.\"\n}" }
+          }
+        },
+        {
+          "name": "Suspend Cook",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/admin/cooks/{{cook_id}}/verify",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"suspended\",\n  \"adminNote\": \"Multiple complaints received.\"\n}" }
+          }
+        },
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/admin/orders?status=placed&page=1", "query": [{ "key": "status", "value": "placed" }, { "key": "page", "value": "1" }] }
+          }
+        },
+        {
+          "name": "Get All Payments",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/payments" }
+        },
+        {
+          "name": "Hide Abusive Review",
+          "request": { "method": "DELETE", "url": "{{base_url}}/admin/reviews/{{review_id}}" }
+        }
+      ]
+    },
+    {
+      "name": "❤️ Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{base_url}}/health" }
+        }
+      ]
+    }
+  ]
+}
