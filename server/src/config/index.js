@@ -1,27 +1,39 @@
-import dotenv from 'dotenv';
-dotenv.config();
+// import dotenv from 'dotenv';
 
+// dotenv.config();
+
+console.log(process.env.NODE_ENV)
 const config = {
   env: process.env.NODE_ENV || 'development',
-  port: parseInt(process.env.PORT, 10) || 5000,
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+
+  port: Number(process.env.PORT) || 5000,
+
   appName: process.env.APP_NAME || 'HomeFood',
 
+  clientUrl:
+    process.env.CLIENT_URL || 'http://localhost:3000',
+
   db: {
-    uri: process.env.NODE_ENV === 'production'
-      ? process.env.MONGODB_URI_PROD
-      : process.env.MONGODB_URI || 'mongodb://localhost:27017/homefood',
+    uri:
+      process.env.MONGODB_URI_PROD ||
+      'mongodb://127.0.0.1:27017/homefood',
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET || 'jwt-secret',
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
-    refreshSecret: process.env.JWT_REFRESH_SECRET,
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+
+    refreshSecret:
+      process.env.JWT_REFRESH_SECRET ||
+      'refresh-secret',
+
+    refreshExpiresIn:
+      process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
 
   bcrypt: {
-    saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12,
+    saltRounds:
+      Number(process.env.BCRYPT_SALT_ROUNDS) || 12,
   },
 
   cloudinary: {
@@ -37,36 +49,51 @@ const config = {
 
   email: {
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    port: Number(process.env.SMTP_PORT) || 587,
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
     from: process.env.EMAIL_FROM,
-    fromName: process.env.EMAIL_FROM_NAME || 'HomeFood',
+    fromName:
+      process.env.EMAIL_FROM_NAME || 'HomeFood',
   },
 
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 900000,
-    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
+    windowMs:
+      Number(process.env.RATE_LIMIT_WINDOW_MS) ||
+      15 * 60 * 1000,
+
+    max: Number(process.env.RATE_LIMIT_MAX) || 100,
   },
 
   geo: {
-    defaultRadiusKm: parseFloat(process.env.DEFAULT_SEARCH_RADIUS_KM) || 10,
+    defaultRadiusKm:
+      Number(process.env.DEFAULT_SEARCH_RADIUS_KM) || 10,
   },
 
   pagination: {
-    defaultSize: parseInt(process.env.DEFAULT_PAGE_SIZE, 10) || 20,
-    maxSize: parseInt(process.env.MAX_PAGE_SIZE, 10) || 100,
+    defaultSize:
+      Number(process.env.DEFAULT_PAGE_SIZE) || 20,
+
+    maxSize:
+      Number(process.env.MAX_PAGE_SIZE) || 100,
   },
 };
 
-// Validate critical config at startup
-const requiredInProduction = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
+// Validate Required Production Variables
+const requiredEnv = [
+  'MONGODB_URI',
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+];
+
 if (config.env === 'production') {
-  for (const key of requiredInProduction) {
+  requiredEnv.forEach((key) => {
     if (!process.env[key]) {
-      throw new Error(`Missing required environment variable: ${key}`);
+      throw new Error(
+        `Missing required environment variable: ${key}`
+      );
     }
-  }
+  });
 }
 
 export default config;

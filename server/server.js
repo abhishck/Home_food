@@ -4,6 +4,7 @@ import app from './src/app.js';
 import connectDB from './src/database/connect.js';
 import logger from './src/utils/logger.js';
 import config from './src/config/index.js';
+import 'dotenv/config';
 
 const PORT = config.port;
 
