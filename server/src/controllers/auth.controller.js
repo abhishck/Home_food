@@ -8,15 +8,28 @@ import { sendEmail, emailTemplates } from '../utils/email.js';
 import { COOKIE_OPTIONS } from '../constants/index.js';
 import CookProfile from '../models/CookProfile.model.js';
 
-const sendTokenResponse = (res, user, statusCode = 200, message = 'Success') => {
+const sendTokenResponse = async (
+  res,
+  user,
+  statusCode = 200,
+  message = 'Success'
+) => {
   const payload = { id: user._id, role: user.role };
-  const { accessToken, refreshToken } = generateTokenPair(payload);
 
-  // Store refresh token in DB (async, non-blocking)
-  User.findByIdAndUpdate(user._id, { refreshToken }).exec();
+  const { accessToken, refreshToken } =
+    generateTokenPair(payload);
+
+  // IMPORTANT:
+  // Wait for DB write before responding
+  user.refreshToken = refreshToken;
+
+  await user.save({ validateBeforeSave: false });
 
   res
-    .cookie('accessToken', accessToken, { ...COOKIE_OPTIONS, maxAge: 15 * 60 * 1000 })
+    .cookie('accessToken', accessToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: 15 * 60 * 1000,
+    })
     .cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
 
   return res.status(statusCode).json({
