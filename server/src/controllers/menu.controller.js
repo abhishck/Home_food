@@ -8,10 +8,10 @@ import { deleteFromCloudinary } from '../utils/upload.js';
 
 // POST /api/menu
 export const createMenuItem = asyncHandler(async (req, res) => {
-  const cookProfile = req.cookProfile || await CookProfile.findOne({ user: req.user._id });
-  if (!cookProfile) throw ApiError.notFound('Cook profile not found');
+  const cookProfile = await CookProfile.findOne({ user: req.user._id });
+  if (!cookProfile) throw ApiError.notFound('Cook profile not found. Please create your kitchen profile first.');
   if (cookProfile.status !== 'approved') {
-    throw ApiError.forbidden('Only approved cooks can create menu items');
+    throw ApiError.forbidden(`Your account is ${cookProfile.status}. Only approved cooks can create menu items.`);
   }
 
   const menuItem = await Menu.create({
@@ -28,7 +28,10 @@ export const createMenuItem = asyncHandler(async (req, res) => {
 // GET /api/menu/my — cook's own menu
 export const getMyMenu = asyncHandler(async (req, res) => {
   const cookProfile = await CookProfile.findOne({ user: req.user._id });
-  if (!cookProfile) throw ApiError.notFound('Cook profile not found');
+  if (!cookProfile) {
+    // Return empty list instead of throwing — cook may not have a profile yet
+    return ApiResponse.success(res, [], 'No menu items', 200, { total: 0, page: 1, totalPages: 0 });
+  }
 
   const options = getPaginationOptions(req.query);
   const filter = { cook: cookProfile._id };
@@ -45,7 +48,9 @@ export const getCookMenu = asyncHandler(async (req, res) => {
   const { cookId } = req.params;
   const options = getPaginationOptions(req.query);
 
-  const filter = { cook: cookId, isAvailable: true };
+  const filter = { cook: cookId };
+  // Only show available items to the public; cooks/admin see all
+  if (!req.user || req.user.role === 'customer') filter.isAvailable = true;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.foodType) filter.foodType = req.query.foodType;
 
@@ -65,13 +70,17 @@ export const updateMenuItem = asyncHandler(async (req, res) => {
   const item = await Menu.findOne({ _id: req.params.id, cookUser: req.user._id });
   if (!item) throw ApiError.notFound('Menu item not found or not yours');
 
-  const updates = req.body;
+  const updates = { ...req.body };
 
   if (req.file) {
-    if (item.imagePublicId) await deleteFromCloudinary(item.imagePublicId);
+    if (item.imagePublicId) await deleteFromCloudinary(item.imagePublicId).catch(() => {});
     updates.image = req.file.path;
     updates.imagePublicId = req.file.filename;
   }
+
+  // Prevent overwriting cook/cookUser
+  delete updates.cook;
+  delete updates.cookUser;
 
   Object.assign(item, updates);
   await item.save();
@@ -84,7 +93,7 @@ export const deleteMenuItem = asyncHandler(async (req, res) => {
   const item = await Menu.findOne({ _id: req.params.id, cookUser: req.user._id });
   if (!item) throw ApiError.notFound('Menu item not found or not yours');
 
-  if (item.imagePublicId) await deleteFromCloudinary(item.imagePublicId);
+  if (item.imagePublicId) await deleteFromCloudinary(item.imagePublicId).catch(() => {});
   await item.deleteOne();
 
   return ApiResponse.success(res, null, 'Menu item deleted');

@@ -14,19 +14,21 @@ import { ROLES } from '../constants/index.js';
 
 const router = Router();
 
-// Public routes
+// ── Public routes ─────────────────────────────────────────────────────────
+// IMPORTANT: specific paths must come BEFORE /:id wildcard
 router.get('/nearby', validate(nearbyKitchenSchema), getNearbyKitchens);
+
+// ── Cook-only protected routes ─────────────────────────────────────────────
+// These must come BEFORE /:id to avoid "profile" being treated as an ObjectId
+router.post('/profile', authenticate, authorize(ROLES.COOK), validate(createCookProfileSchema), createCookProfile);
+router.get('/profile/me', authenticate, authorize(ROLES.COOK), getMyCookProfile);
+router.patch('/profile', authenticate, authorize(ROLES.COOK), validate(updateCookProfileSchema), updateCookProfile);
+router.patch('/availability', authenticate, authorize(ROLES.COOK), toggleAvailability);
+router.post('/images', authenticate, authorize(ROLES.COOK), kitchenImageUpload.array('images', 8), uploadKitchenImages);
+router.delete('/images/:imageId', authenticate, authorize(ROLES.COOK), deleteKitchenImage);
+router.post('/verification-docs', authenticate, authorize(ROLES.COOK), uploadVerificationDoc.single('document'), uploadVerificationDocs);
+
+// ── Wildcard — MUST be last ────────────────────────────────────────────────
 router.get('/:id', getCookById);
-
-// Cook-only protected routes
-router.use(authenticate, authorize(ROLES.COOK));
-
-router.post('/profile', validate(createCookProfileSchema), createCookProfile);
-router.get('/profile/me', getMyCookProfile);
-router.patch('/profile', validate(updateCookProfileSchema), updateCookProfile);
-router.patch('/availability', toggleAvailability);
-router.post('/images', kitchenImageUpload.array('images', 8), uploadKitchenImages);
-router.delete('/images/:imageId', deleteKitchenImage);
-router.post('/verification-docs', uploadVerificationDoc.single('document'), uploadVerificationDocs);
 
 export default router;

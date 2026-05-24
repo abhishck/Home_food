@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import User from '../models/User.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
@@ -7,12 +6,13 @@ import { generateTokenPair, verifyRefreshToken } from '../utils/token.js';
 import { generateResetToken, hashToken } from '../utils/crypto.js';
 import { sendEmail, emailTemplates } from '../utils/email.js';
 import { COOKIE_OPTIONS } from '../constants/index.js';
+import CookProfile from '../models/CookProfile.model.js';
 
 const sendTokenResponse = (res, user, statusCode = 200, message = 'Success') => {
   const payload = { id: user._id, role: user.role };
   const { accessToken, refreshToken } = generateTokenPair(payload);
 
-  // Store refresh token hash in DB (async, non-blocking)
+  // Store refresh token in DB (async, non-blocking)
   User.findByIdAndUpdate(user._id, { refreshToken }).exec();
 
   res
@@ -34,14 +34,13 @@ const sendTokenResponse = (res, user, statusCode = 200, message = 'Success') => 
 export const register = asyncHandler(async (req, res) => {
   const { name, email, phone, password, role } = req.body;
 
-  const existing = await User.findOne({ email }).setOptions({ skipFilter: true });
+  const existing = await User.findOne({ email });
   if (existing) throw ApiError.conflict('Email already registered');
 
-  const user = await User.create({ name, email, phone, password, role });
+  const user = await User.create({ name, email, phone: phone || undefined, password, role });
 
-  // Welcome email (non-blocking)
-  const tmpl = emailTemplates.welcomeEmail(name);
-  sendEmail({ to: email, ...tmpl }).catch(() => {});
+  // Non-blocking welcome email — never fail the request over email issues
+  sendEmail({ to: email, ...emailTemplates.welcomeEmail(name) }).catch(() => {});
 
   return sendTokenResponse(res, user, 201, 'Registration successful');
 });
@@ -75,13 +74,14 @@ export const refreshToken = asyncHandler(async (req, res) => {
   try {
     decoded = verifyRefreshToken(token);
   } catch {
-    throw ApiError.unauthorized('Invalid or expired refresh token');
+    throw ApiError.unauthorized('Invalid or expired refresh token. Please log in again.');
   }
 
   const user = await User.findById(decoded.id).select('+refreshToken');
   if (!user || user.refreshToken !== token) {
-    throw ApiError.unauthorized('Refresh token reuse detected or invalid');
+    throw ApiError.unauthorized('Refresh token is invalid. Please log in again.');
   }
+  if (!user.isActive) throw ApiError.forbidden('Account has been deactivated');
 
   return sendTokenResponse(res, user, 200, 'Token refreshed');
 });
@@ -89,31 +89,30 @@ export const refreshToken = asyncHandler(async (req, res) => {
 // POST /api/auth/forgot-password
 export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  const user = await User.findOne({ email });
 
-  // Always return success to prevent email enumeration
-  if (!user) {
-    return ApiResponse.success(res, null, 'If that email is registered, a reset link has been sent.');
-  }
+  // Always succeed — prevents email enumeration
+  const successMessage = 'If that email is registered, a reset link has been sent.';
+
+  const user = await User.findOne({ email });
+  if (!user) return ApiResponse.success(res, null, successMessage);
 
   const { rawToken, hashedToken } = generateResetToken();
   user.passwordResetToken = hashedToken;
-  user.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 min
+  user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
   await user.save({ validateBeforeSave: false });
 
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+  const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${rawToken}`;
   const tmpl = emailTemplates.passwordReset(resetUrl, user.name);
 
-  try {
-    await sendEmail({ to: email, ...tmpl });
-  } catch {
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-    throw ApiError.internal('Failed to send reset email. Please try again.');
-  }
+  // Non-blocking email — if SMTP isn't configured, still return success
+  sendEmail({ to: email, ...tmpl }).catch((err) => {
+    // Reset the token if email fails so user can retry
+    User.findByIdAndUpdate(user._id, {
+      $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
+    }).exec();
+  });
 
-  return ApiResponse.success(res, null, 'Password reset link sent to your email.');
+  return ApiResponse.success(res, null, successMessage);
 });
 
 // PATCH /api/auth/reset-password/:token
@@ -130,7 +129,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   user.password = req.body.password;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
-  user.refreshToken = undefined; // Invalidate all sessions
+  user.refreshToken = undefined;
   await user.save();
 
   return ApiResponse.success(res, null, 'Password reset successful. Please log in again.');
@@ -154,6 +153,21 @@ export const changePassword = asyncHandler(async (req, res) => {
 
 // GET /api/auth/me
 export const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).populate('cookProfile');
-  return ApiResponse.success(res, user.toSafeObject(), 'Profile fetched');
+  const user = await User.findById(req.user._id);
+  if (!user) throw ApiError.unauthorized('User not found');
+
+  const safeUser = user.toSafeObject();
+
+  // Attach cook profile if user is a cook (optional — non-fatal)
+  if (user.role === 'cook') {
+    try {
+      const cookProfile = await CookProfile.findOne({ user: user._id })
+        .select('status kitchenName isAvailable _id');
+      safeUser.cookProfile = cookProfile || null;
+    } catch {
+      safeUser.cookProfile = null;
+    }
+  }
+
+  return ApiResponse.success(res, safeUser, 'Profile fetched');
 });

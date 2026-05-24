@@ -1,14 +1,23 @@
 import User from '../models/User.model.js';
+import CookProfile from '../models/CookProfile.model.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { deleteFromCloudinary } from '../utils/upload.js';
-import { paginate, getPaginationOptions } from '../utils/paginate.js';
 
 // GET /api/users/profile
 export const getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).populate('cookProfile');
-  return ApiResponse.success(res, user.toSafeObject());
+  const user = await User.findById(req.user._id);
+  const safeUser = user.toSafeObject();
+
+  // Attach cook profile if cook
+  if (user.role === 'cook') {
+    const cookProfile = await CookProfile.findOne({ user: user._id })
+      .select('status kitchenName isAvailable _id');
+    safeUser.cookProfile = cookProfile || null;
+  }
+
+  return ApiResponse.success(res, safeUser);
 });
 
 // PATCH /api/users/profile
@@ -32,7 +41,7 @@ export const uploadAvatar = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.user._id).select('+avatarPublicId');
   if (user.avatarPublicId) {
-    await deleteFromCloudinary(user.avatarPublicId);
+    await deleteFromCloudinary(user.avatarPublicId).catch(() => {});
   }
 
   user.avatar = req.file.path;
@@ -54,19 +63,23 @@ export const addAddress = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.user._id);
 
-  if (isDefault) {
-    user.addresses.forEach((a) => (a.isDefault = false));
+  // First address is always default
+  const makeDefault = isDefault || user.addresses.length === 0;
+  if (makeDefault) {
+    user.addresses.forEach((a) => { a.isDefault = false; });
   }
 
   user.addresses.push({
-    label,
+    label: label || 'home',
     line1,
     line2,
     city,
     state,
     pincode,
-    location: { type: 'Point', coordinates: [longitude, latitude] },
-    isDefault: isDefault || user.addresses.length === 0,
+    isDefault: makeDefault,
+    ...(latitude && longitude && {
+      location: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+    }),
   });
 
   await user.save();
@@ -88,10 +101,10 @@ export const updateAddress = asyncHandler(async (req, res) => {
   if (state !== undefined) address.state = state;
   if (pincode !== undefined) address.pincode = pincode;
   if (latitude !== undefined && longitude !== undefined) {
-    address.location = { type: 'Point', coordinates: [longitude, latitude] };
+    address.location = { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] };
   }
   if (isDefault) {
-    user.addresses.forEach((a) => (a.isDefault = false));
+    user.addresses.forEach((a) => { a.isDefault = false; });
     address.isDefault = true;
   }
 
@@ -107,11 +120,8 @@ export const deleteAddress = asyncHandler(async (req, res) => {
 
   address.deleteOne();
   await user.save();
-  return ApiResponse.success(res, null, 'Address deleted');
+  return ApiResponse.success(res, user.addresses, 'Address deleted');
 });
-
-// GET /api/users/orders — order history (delegated to order controller)
-// Defined in order routes for better cohesion.
 
 // DELETE /api/users/account
 export const deleteAccount = asyncHandler(async (req, res) => {

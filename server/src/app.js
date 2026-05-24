@@ -14,18 +14,29 @@ import ApiError from './utils/ApiError.js';
 
 const app = express();
 
-// ── Trust proxy (needed behind nginx / load balancer) ──────────────────────
+// ── Trust proxy (needed behind nginx / Render / Heroku) ────────────────────
 app.set('trust proxy', 1);
 
 // ── Security headers ────────────────────────────────────────────────────────
 app.use(helmet());
 
-// ── CORS ────────────────────────────────────────────────────────────────────
+// ── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  config.clientUrl,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  // Parse additional origins from env: ALLOWED_ORIGINS=https://app.com,https://www.app.com
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()) : []),
+].filter(Boolean);
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      const allowed = [config.clientUrl, 'http://localhost:3000', 'http://localhost:5173'];
-      if (!origin || allowed.includes(origin)) return cb(null, true);
+      // Allow requests with no origin (curl, Postman, server-to-server)
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
       cb(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -34,63 +45,46 @@ app.use(
   })
 );
 
-// ── Rate limiting ────────────────────────────────────────────────────────────
+// ── Rate limiting ─────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.max,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many requests. Please try again later.',
-  },
+  message: { success: false, message: 'Too many requests. Please try again later.' },
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 20,
-  message: {
-    success: false,
-    message: 'Too many auth attempts. Please try again in 15 minutes.',
-  },
+  message: { success: false, message: 'Too many auth attempts. Please try again in 15 minutes.' },
 });
 
 app.use('/api', globalLimiter);
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
 
-// ── Body parsers ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// ── Body parsing ──────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// ── Sanitization ─────────────────────────────────────────────────────────────
-app.use(mongoSanitize());   // Prevent NoSQL injection
-app.use(xssClean());        // Sanitize user input against XSS
+// ── Sanitisation ──────────────────────────────────────────────────────────────
+app.use(mongoSanitize());
+app.use(xssClean());
 
-// ── HTTP request logging ──────────────────────────────────────────────────────
+// ── Request logger ────────────────────────────────────────────────────────────
 app.use(requestLogger);
 
-// ── API routes ────────────────────────────────────────────────────────────────
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/v1', routes);
 
-// ── Root ping ────────────────────────────────────────────────────────────────
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: '🍽️  HomeFood API — Homemade food, delivered with love.',
-    docs: '/api/v1/health',
-    version: '1.0.0',
-  });
-});
-
-// ── 404 handler ───────────────────────────────────────────────────────────────
+// ── 404 ───────────────────────────────────────────────────────────────────────
 app.all('*', (req, res, next) => {
-  next(ApiError.notFound(`Route ${req.method} ${req.originalUrl} not found`));
+  next(ApiError.notFound(`Route ${req.originalUrl} not found`));
 });
 
-// ── Global error handler ──────────────────────────────────────────────────────
+// ── Error handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
 export default app;
